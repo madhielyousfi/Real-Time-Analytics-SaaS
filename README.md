@@ -1,8 +1,18 @@
 # Real-Time Analytics SaaS
 
+[![Server Status](https://img.shields.io/badge/Server-Running-green)](http://localhost:8001)
+
 A lightweight, end-to-end real-time analytics platform built from scratch, designed to simulate how modern product analytics tools (like PostHog or Mixpanel) work internally.
 
 This project covers the full data lifecycle: event ingestion → processing → storage → real-time metrics → interactive dashboard.
+
+## Running
+
+```bash
+./run.sh
+```
+
+Then open http://localhost:8001
 
 ## Features
 
