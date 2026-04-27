@@ -1,0 +1,56 @@
+name: Run Full App
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: dashboard-frontend/package-lock.json
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Python dependencies
+        run: pip install fastapi uvicorn sqlalchemy
+
+      - name: Install Frontend dependencies
+        run: npm install
+        working-directory: dashboard-frontend
+
+      - name: Start Backend
+        run: python3 server.py 8001 &
+        env:
+          DATABASE_URL: sqlite:///./test.db
+
+      - name: Start Frontend
+        run: npm run dev &
+        working-directory: dashboard-frontend
+
+      - name: Wait for services
+        run: sleep 10
+
+      - name: Check Backend health
+        run: curl -f http://localhost:8001/health || exit 1
+
+      - name: Check Frontend health
+        run: curl -f http://localhost:3000 || exit 1
+
+      - name: Test backend API
+        run: curl -f http://localhost:8001/api/stats
