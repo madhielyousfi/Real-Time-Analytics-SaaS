@@ -70,9 +70,6 @@ chmod +x run.sh
 
 Access everything at: **http://localhost:8001**
 
-- Dashboard → http://localhost:8001/
-- Backend API → http://localhost:8001
-
 ## Example API Usage
 
 ```bash
