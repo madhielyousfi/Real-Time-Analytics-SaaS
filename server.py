@@ -3,6 +3,7 @@
 Real-Time Analytics - SaaS-Grade Server
 With: Multi-tenancy, Event Queue, Real-time Metrics, Funnels
 """
+import os
 import json
 import sqlite3
 import uuid
@@ -255,6 +256,35 @@ def process_event_worker():
             print(f"Error: {e}")
 
 
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dashboard")
+
+def serve_static(path):
+    if path == "/" or path == "":
+        path = "/index.html"
+    
+    file_path = os.path.join(STATIC_DIR, path.lstrip("/"))
+    
+    if os.path.isdir(file_path):
+        file_path = os.path.join(file_path, "index.html")
+    
+    if os.path.exists(file_path):
+        ext = os.path.splitext(file_path)[1]
+        content_type = {
+            ".html": "text/html",
+            ".js": "application/javascript",
+            ".css": "text/css",
+            ".json": "application/json",
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".svg": "image/svg+xml",
+        }.get(ext, "text/plain")
+        
+        with open(file_path, "rb") as f:
+            return 200, f.read(), content_type
+    
+    return 404, b"Not Found", "text/plain"
+
+
 class AnalyticsHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         print(f"{self.address_string()} - {format % args}")
@@ -283,6 +313,14 @@ class AnalyticsHandler(BaseHTTPRequestHandler):
         
         if parsed.path == "/health":
             self.send_json({"status": "healthy", "service": "analytics-saas", "queue_size": event_queue.qsize()})
+        
+        elif parsed.path.startswith("/dashboard") or parsed.path == "/" or parsed.path == "":
+            status, content, content_type = serve_static(parsed.path)
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.end_headers()
+            self.wfile.write(content)
+            return
         
         elif parsed.path == "/api/stats":
             app = self.get_app_from_headers()
