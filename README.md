@@ -51,9 +51,24 @@ Dashboard (Charts + Funnel Analysis)
 
 ## Getting Started
 
+### Run the App
+
 ```bash
 git clone https://github.com/madhielyousfi/Real-Time-Analytics-SaaS.git
 cd Real-Time-Analytics-SaaS
+chmod +x run-dev.sh
+./run-dev.sh
+```
+
+This starts both frontend and backend:
+
+Access:
+- Frontend → http://localhost:3000
+- Backend API → http://localhost:8001
+
+### Alternative (classic mode)
+
+```bash
 chmod +x run.sh
 ./run.sh
 ```
