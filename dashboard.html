@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Analytics Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <nav class="bg-white border-b border-gray-200 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                </div>
+                <h1 class="text-xl font-bold text-gray-900">Analytics</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span id="connectionStatus" class="text-sm text-gray-500">Connecting...</span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-6 py-8">
+        <!-- App Selector -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">Select Application</h2>
+            <div class="flex items-center space-x-4">
+                <select id="appSelector" class="flex-1 max-w-md border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">Loading apps...</option>
+                </select>
+                <button onclick="createNewApp()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                    + New App
+                </button>
+            </div>
+            <div id="apiKeys" class="mt-4 p-4 bg-gray-50 rounded-lg hidden">
+                <p class="text-sm text-gray-600 mb-2">API Keys:</p>
+                <code id="apiKeyDisplay" class="text-xs bg-gray-200 px-2 py-1 rounded break-all"></code>
+                <code id="secretKeyDisplay" class="text-xs bg-gray-200 px-2 py-1 rounded break-all ml-2"></code>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <p class="text-sm text-gray-500 mb-1">Total Events</p>
+                <p id="statEvents" class="text-3xl font-bold text-gray-900">-</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <p class="text-sm text-gray-500 mb-1">Unique Users</p>
+                <p id="statUsers" class="text-3xl font-bold text-gray-900">-</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <p class="text-sm text-gray-500 mb-1">Sessions</p>
+                <p id="statSessions" class="text-3xl font-bold text-gray-900">-</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <p class="text-sm text-gray-500 mb-1">Events/Min</p>
+                <p id="statEPM" class="text-3xl font-bold text-gray-900">-</p>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Events Over Time -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Events Over Time</h3>
+                <canvas id="eventsChart" height="250"></canvas>
+            </div>
+            <!-- Event Types -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Event Types</h3>
+                <canvas id="typesChart" height="250"></canvas>
+            </div>
+        </div>
+
+        <!-- Funnel Analysis -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Funnel Analysis</h3>
+            <div class="flex items-center space-x-4 mb-4">
+                <input id="funnelSteps" type="text" placeholder="page_view, signup, purchase" 
+                    class="flex-1 max-w-md border border-gray-300 rounded-lg px-4 py-2" value="page_view, signup, purchase">
+                <button onclick="runFunnel()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                    Run Funnel
+                </button>
+            </div>
+            <div id="funnelResults" class="space-y-3"></div>
+        </div>
+
+        <!-- Recent Events -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">Recent Events</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead>
+                        <tr class="text-left text-xs font-medium text-gray-500 uppercase">
+                            <th class="py-3">Time</th>
+                            <th class="py-3">Type</th>
+                            <th class="py-3">User</th>
+                            <th class="py-3">Session</th>
+                        </tr>
+                    </thead>
+                    <tbody id="eventsTable" class="divide-y divide-gray-200"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:8001';
+        let currentApp = null;
+        let eventsChart = null;
+        let typesChart = null;
+
+        // Check connection
+        async function checkConnection() {
+            try {
+                const res = await fetch(`${API_URL}/health`);
+                const data = await res.json();
+                document.getElementById('connectionStatus').innerHTML = 
+                    `<span class="text-green-600">● Connected</span>`;
+                return true;
+            } catch {
+                document.getElementById('connectionStatus').innerHTML = 
+                    `<span class="text-red-600">● Disconnected</span>`;
+                return false;
+            }
+        }
+
+        // Load apps
+        async function loadApps() {
+            try {
+                const res = await fetch(`${API_URL}/api/apps`);
+                const apps = await res.json();
+                
+                const selector = document.getElementById('appSelector');
+                selector.innerHTML = apps.length ? '' : '<option>No apps found</option>';
+                
+                apps.forEach(app => {
+                    const opt = document.createElement('option');
+                    opt.value = app.api_key;
+                    opt.textContent = app.name;
+                    selector.appendChild(opt);
+                });
+
+                if (apps.length > 0) {
+                    selector.value = apps[0].api_key;
+                    await selectApp();
+                }
+            } catch (e) {
+                console.error('Error loading apps:', e);
+            }
+        }
+
+        // Select app
+        async function selectApp() {
+            const selector = document.getElementById('appSelector');
+            const apiKey = selector.value;
+            if (!apiKey) return;
+
+            const apps = Array.from(selector.options).map(o => ({ name: o.textContent, api_key: o.value }));
+            const app = apps.find(a => a.api_key === apiKey);
+            if (!app) return;
+
+            // Get full app details
+            try {
+                const res = await fetch(`${API_URL}/api/metrics/summary`, {
+                    headers: {
+                        'X-API-Key': apiKey,
+                        'X-Secret-Key': ''
+                    }
+                });
+                const data = await res.json();
+                
+                currentApp = {
+                    name: app.name,
+                    api_key: apiKey,
+                    ...data
+                };
+
+                // Show API keys section
+                if (data.secret_key) {
+                    document.getElementById('apiKeys').classList.remove('hidden');
+                    document.getElementById('apiKeyDisplay').textContent = data.api_key || apiKey;
+                    document.getElementById('secretKeyDisplay').textContent = data.secret_key || '';
+                }
+
+                updateStats(data);
+                await loadRecentEvents();
+            } catch (e) {
+                console.error('Error:', e);
+            }
+        }
+
+        // Update stats
+        function updateStats(data) {
+            document.getElementById('statEvents').textContent = data.total_events || 0;
+            document.getElementById('statUsers').textContent = data.unique_users || 0;
+            document.getElementById('statSessions').textContent = data.unique_sessions || 0;
+            
+            const epm = data.events_per_minute || [];
+            const lastMinute = epm.length > 0 ? epm[epm.length - 1].value : 0;
+            document.getElementById('statEPM').textContent = lastMinute;
+
+            // Update charts
+            updateCharts(data);
+        }
+
+        // Update charts
+        function updateCharts(data) {
+            const epm = data.events_per_minute || [];
+            const types = data.event_types || {};
+
+            // Events over time chart
+            const epmCtx = document.getElementById('eventsChart').getContext('2d');
+            if (eventsChart) eventsChart.destroy();
+            eventsChart = new Chart(epmCtx, {
+                type: 'line',
+                data: {
+                    labels: epm.map(e => e.timestamp),
+                    datasets: [{
+                        label: 'Events',
+                        data: epm.map(e => e.value),
+                        borderColor: '#3B82F6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true },
+                        x: { display: true }
+                    }
+                }
+            });
+
+            // Event types chart
+            const typesCtx = document.getElementById('typesChart').getContext('2d');
+            if (typesChart) typesChart.destroy();
+            typesChart = new Chart(typesCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(types),
+                    datasets: [{
+                        data: Object.values(types),
+                        backgroundColor: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+        }
+
+        // Load recent events
+        async function loadRecentEvents() {
+            if (!currentApp) return;
+            
+            try {
+                const res = await fetch(`${API_URL}/api/events?app_id=${currentApp.app_id || ''}&limit=20`, {
+                    headers: {
+                        'X-API-Key': currentApp.api_key
+                    }
+                });
+                const events = await res.json();
+                
+                const tbody = document.getElementById('eventsTable');
+                tbody.innerHTML = events.map(e => `
+                    <tr class="hover:bg-gray-50">
+                        <td class="py-3 text-sm text-gray-600">${new Date(e.timestamp).toLocaleTimeString()}</td>
+                        <td class="py-3"><span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm">${e.event_type}</span></td>
+                        <td class="py-3 text-sm text-gray-600">${e.user_id || '-'}</td>
+                        <td class="py-3 text-sm text-gray-500">${e.session_id || '-'}</td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                console.error('Error loading events:', e);
+            }
+        }
+
+        // Create new app
+        async function createNewApp() {
+            const name = prompt('Enter app name:');
+            if (!name) return;
+
+            try {
+                const res = await fetch(`${API_URL}/api/apps`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                const app = await res.json();
+                
+                const selector = document.getElementById('appSelector');
+                const opt = document.createElement('option');
+                opt.value = app.api_key;
+                opt.textContent = app.name;
+                selector.appendChild(opt);
+                selector.value = app.api_key;
+                
+                await selectApp();
+            } catch (e) {
+                alert('Error creating app: ' + e.message);
+            }
+        }
+
+        // Run funnel
+        async function runFunnel() {
+            if (!currentApp) {
+                alert('Please select an app first');
+                return;
+            }
+
+            const stepsInput = document.getElementById('funnelSteps').value;
+            const steps = stepsInput.split(',').map(s => s.trim());
+
+            try {
+                const res = await fetch(`${API_URL}/api/funnels/query`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-API-Key': currentApp.api_key
+                    },
+                    body: JSON.stringify({ steps })
+                });
+                const data = await res.json();
+
+                const container = document.getElementById('funnelResults');
+                container.innerHTML = data.steps.map((step, i) => {
+                    const color = i === 0 ? 'bg-blue-600' : 'bg-green-600';
+                    return `
+                        <div class="flex items-center space-x-4">
+                            <div class="w-32 text-sm text-gray-600">${step.step_name}</div>
+                            <div class="flex-1 bg-gray-200 rounded-full h-6 relative">
+                                <div class="${color} rounded-full h-6" style="width: ${step.conversion_rate}%"></div>
+                                <span class="absolute inset-0 flex items-center justify-center text-sm font-medium">${step.count} (${step.conversion_rate}%)</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                console.error('Funnel error:', e);
+            }
+        }
+
+        // Initialize
+        async function init() {
+            const connected = await checkConnection();
+            if (connected) {
+                await loadApps();
+                setInterval(loadRecentEvents, 5000);
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
